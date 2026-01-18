@@ -26,12 +26,15 @@ st.markdown("""
 
     header, footer, #MainMenu {visibility: hidden;}
 
-    /* Sticky Header Logic removed for native buttons - Custom styling for top bar */
-    .top-bar {
-        background: rgba(11, 14, 20, 0.95);
-        padding: 10px 0;
-        border-bottom: 1px solid #1E2530;
-        margin-bottom: 20px;
+    /* Sticky Header Logic */
+    div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stHorizontalBlock"]) {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background-color: rgba(11, 14, 20, 0.95);
+        backdrop-filter: blur(15px);
+        margin-top: -6rem; /* Pull up to cover default padding if needed, or adjust */
+        padding-top: 1rem;
     }
 
     .node-status {
@@ -42,7 +45,7 @@ st.markdown("""
     }
 
     /* Layout Content */
-    .main-content { padding-bottom: 120px; }
+    .main-content { padding-top: 20px; padding-bottom: 120px; }
 
     /* Chat Messages - BLUE THEME */
     [data-testid="stChatMessage"] {
@@ -56,19 +59,59 @@ st.markdown("""
     .user-label { color: #00D1FF; font-weight: 600; font-size: 0.7rem; margin-bottom: 5px; display: block; text-transform: uppercase;}
     .lib-label { color: #708090; font-weight: 600; font-size: 0.7rem; margin-bottom: 5px; display: block; text-transform: uppercase;}
 
-    /* Input Moderna: NO RED BORDERS */
-    .stChatInputContainer { background-color: transparent !important; border: none !important; }
-    .stChatInputContainer textarea {
+    /* --- CHAT INPUT FIXES (NO RED) --- */
+    /* Wrapper Container */
+    [data-testid="stChatInput"] {
+        background-color: transparent !important;
+        border-color: transparent !important;
+    }
+
+    /* The internal container that usually gets the red border */
+    [data-testid="stChatInput"] > div {
         background-color: #161B22 !important;
         border: 1px solid #1E2530 !important;
         border-radius: 10px !important;
         color: #E6EDF3 !important;
+        box-shadow: none !important;
     }
-    .stChatInputContainer textarea:focus {
-        border: 1px solid #00D1FF !important;
-        box-shadow: 0 0 10px rgba(0, 209, 255, 0.2) !important;
+
+    /* Focus State for the wrapper */
+    [data-testid="stChatInput"] > div:focus-within {
+        border-color: #00D1FF !important;
+        box-shadow: 0 0 0 1px #00D1FF !important;
+    }
+
+    /* Textarea itself */
+    [data-testid="stChatInput"] textarea {
+        background-color: transparent !important;
+        color: #E6EDF3 !important;
+        caret-color: #00D1FF !important;
+        border: none !important; /* Remove internal borders */
     }
     
+    [data-testid="stChatInput"] textarea::placeholder {
+        font-size: 0.8rem !important;
+        color: #586069 !important;
+    }
+
+    /* Submit Button (Arrow) */
+    button[data-testid="stChatInputSubmit"] {
+        background-color: transparent !important;
+        border: none !important;
+        color: #00D1FF !important; /* Force text color if any */
+    }
+    button[data-testid="stChatInputSubmit"] svg {
+        fill: #00D1FF !important;
+        stroke: #00D1FF !important;
+    }
+    button[data-testid="stChatInputSubmit"]:hover {
+        background-color: rgba(0, 209, 255, 0.1) !important;
+        color: #00D1FF !important;
+    }
+    button[data-testid="stChatInputSubmit"]:focus {
+        color: #00D1FF !important;
+    }
+
     /* TARGETING TEXT INPUTS (Login / Node) to remove Red */
     div[data-baseweb="input"] {
         background-color: #161B22 !important;
@@ -81,13 +124,6 @@ st.markdown("""
     }
     div[data-testid="stTextInput"] label {
         color: #B0BCCB !important;
-    }
-
-    /* Submit Button Cyan */
-    button[data-testid="stChatInputSubmit"] {
-        color: #00D1FF !important;
-        background-color: transparent !important;
-        right: 10px !important;
     }
 
     /* Sidebar & Buttons - PURGE RED */
@@ -112,7 +148,6 @@ def get_current_time():
     return datetime.now(italy_tz)
 
 # --- LOGICA PERSISTENZA ---
-# Tentativo robusto di recupero cookie
 saved_pwd = cookie_manager.get("auth_key")
 saved_node = cookie_manager.get("node_id")
 
@@ -149,32 +184,43 @@ if not st.session_state.user_id:
             st.rerun()
     st.stop()
 
-# --- UI PRINCIPALE (HEADER FUNZIONALE) ---
-c1, c2, c3 = st.columns([5, 2, 2])
-with c1:
-    st.markdown(f"<div style='padding-top:5px; font-weight:700; color:#E6EDF3; letter-spacing:1px;'>LIBRARIAN CORE <span style='color:#00D1FF; margin-left:10px;'>● {st.session_state.user_id}</span></div>", unsafe_allow_html=True)
+# --- UI PRINCIPALE (STICKY HEADER) ---
+header = st.container()
+with header:
+    c1, c2, c3 = st.columns([5, 2, 2])
+    with c1:
+        st.markdown(f"<div style='padding-top:5px; font-weight:700; color:#E6EDF3; letter-spacing:1px;'>LIBRARIAN CORE <span style='color:#00D1FF; margin-left:10px;'>● {st.session_state.user_id}</span></div>", unsafe_allow_html=True)
 
-with c2:
-    if st.button("CHANGE NODE", key="btn_node"):
-        try:
-            cookie_manager.delete("node_id")
-        except KeyError:
-            pass
-        st.session_state.user_id = None
-        st.rerun()
+    with c2:
+        if st.button("CHANGE NODE", key="btn_node"):
+            try: cookie_manager.delete("node_id")
+            except KeyError: pass
+            st.session_state.user_id = None
+            st.rerun()
 
-with c3:
-    if st.button("LOGOUT", key="btn_logout"):
-        try:
-            cookie_manager.delete("auth_key")
-        except KeyError:
-            pass
-        try:
-            cookie_manager.delete("node_id")
-        except KeyError:
-            pass
-        st.session_state.clear()
-        st.rerun()
+    with c3:
+        if st.button("LOGOUT", key="btn_logout"):
+            try: cookie_manager.delete("auth_key")
+            except KeyError: pass
+            try: cookie_manager.delete("node_id")
+            except KeyError: pass
+            st.session_state.clear()
+            st.rerun()
+    st.markdown("<div style='height: 1px; background-color: #1E2530; margin-top: 10px;'></div>", unsafe_allow_html=True)
+
+# CSS Injection
+st.markdown("""
+<style>
+/* Header Sticky Target */
+div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stHorizontalBlock"]) {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: rgba(11, 14, 20, 0.95);
+    backdrop-filter: blur(15px);
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
@@ -199,9 +245,9 @@ def save_mem(role, content):
 if "messages" not in st.session_state:
     history = load_mem()
     now = get_current_time()
-    # Prompt di sistema pulito
     st.session_state.messages = [{"role": "system", "content": f"""Oggi è {now.strftime('%A %d %B %Y')} e sono le {now.strftime('%H:%M')}. 
     Sei il Bibliotecario. Sei analitico, distaccato e professionale.
+    ISTRUZIONE CRITICA: NON terminare MAI le frasi o i messaggi con "0=0". Non usare questa formula.
     Rispondi sempre sapendo l'ora esatta fornita."""}]
     if history:
         st.session_state.messages += [{"role": m["role"], "content": m["content"]} for m in history]
@@ -211,10 +257,11 @@ for msg in st.session_state.messages:
     if msg["role"] == "user":
         st.markdown(f"<span class='user-label'>YOU</span><div>{msg['content']}</div>", unsafe_allow_html=True)
     elif msg["role"] == "assistant":
-        st.markdown(f"<span class='lib-label'>LIBRARIAN</span><div>{msg['content']}</div>", unsafe_allow_html=True)
+        clean_content = msg['content'].replace("0=0", "")
+        st.markdown(f"<span class='lib-label'>LIBRARIAN</span><div>{clean_content}</div>", unsafe_allow_html=True)
 
 # Input Logica
-if prompt := st.chat_input("DATA INPUT..."):
+if prompt := st.chat_input("Write here..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.markdown(f"<span class='user-label'>YOU</span><div>{prompt}</div>", unsafe_allow_html=True)
     save_mem("user", prompt)
@@ -228,10 +275,12 @@ if prompt := st.chat_input("DATA INPUT..."):
         for chunk in stream:
             if chunk.choices[0].delta.content:
                 full_res += chunk.choices[0].delta.content
-                placeholder.markdown(f"<div>{full_res}</div>", unsafe_allow_html=True)
+                display_res = full_res.replace("0=0", "")
+                placeholder.markdown(f"<div>{display_res}</div>", unsafe_allow_html=True)
                 time.sleep(0.05)
-        save_mem("assistant", full_res)
-    st.session_state.messages.append({"role": "assistant", "content": full_res})
+
+        final_clean_res = full_res.replace("0=0", "")
+        save_mem("assistant", final_clean_res)
+    st.session_state.messages.append({"role": "assistant", "content": final_clean_res})
 
 st.markdown('</div>', unsafe_allow_html=True)
-
