@@ -26,21 +26,14 @@ st.markdown("""
 
     header, footer, #MainMenu {visibility: hidden;}
 
-    /* Sticky Header */
-    .dash-header {
-        position: fixed;
-        top: 0; left: 0; width: 100%;
+    /* Sticky Header Logic removed for native buttons - Custom styling for top bar */
+    .top-bar {
         background: rgba(11, 14, 20, 0.95);
-        padding: 15px 0;
+        padding: 10px 0;
         border-bottom: 1px solid #1E2530;
-        z-index: 1000;
-        display: flex; justify-content: center;
-        backdrop-filter: blur(15px);
+        margin-bottom: 20px;
     }
-    .header-content {
-        width: 100%; max-width: 700px;
-        display: flex; justify-content: space-between; padding: 0 20px;
-    }
+
     .node-status {
         color: #00D1FF;
         font-family: 'Fira Code', monospace;
@@ -49,7 +42,7 @@ st.markdown("""
     }
 
     /* Layout Content */
-    .main-content { padding-top: 100px; padding-bottom: 120px; }
+    .main-content { padding-bottom: 120px; }
 
     /* Chat Messages - BLUE THEME */
     [data-testid="stChatMessage"] {
@@ -74,6 +67,20 @@ st.markdown("""
     .stChatInputContainer textarea:focus {
         border: 1px solid #00D1FF !important;
         box-shadow: 0 0 10px rgba(0, 209, 255, 0.2) !important;
+    }
+    
+    /* TARGETING TEXT INPUTS (Login / Node) to remove Red */
+    div[data-baseweb="input"] {
+        background-color: #161B22 !important;
+        border: 1px solid #1E2530 !important;
+        border-radius: 8px !important; 
+    }
+    div[data-baseweb="input"]:focus-within {
+        border-color: #00D1FF !important;
+        box-shadow: 0 0 0 1px #00D1FF !important;
+    }
+    div[data-testid="stTextInput"] label {
+        color: #B0BCCB !important;
     }
     
     /* Submit Button Cyan */
@@ -105,9 +112,14 @@ def get_current_time():
     return datetime.now(italy_tz)
 
 # --- LOGICA PERSISTENZA ---
-time.sleep(0.5)
+# Tentativo robusto di recupero cookie
 saved_pwd = cookie_manager.get("auth_key")
 saved_node = cookie_manager.get("node_id")
+
+if not saved_pwd:
+    time.sleep(0.5)
+    saved_pwd = cookie_manager.get("auth_key")
+    saved_node = cookie_manager.get("node_id")
 
 if "auth_ok" not in st.session_state:
     st.session_state.auth_ok = True if saved_pwd == st.secrets["APP_PASSWORD"] else False
@@ -137,15 +149,33 @@ if not st.session_state.user_id:
             st.rerun()
     st.stop()
 
-# --- UI PRINCIPALE ---
-st.markdown(f'''
-    <div class="dash-header">
-        <div class="header-content">
-            <span style="font-weight:700; color:#E6EDF3; letter-spacing:1px;">LIBRARIAN CORE</span>
-            <span class="node-status">● {st.session_state.user_id}</span>
-        </div>
-    </div>
-''', unsafe_allow_html=True)
+# --- UI PRINCIPALE (HEADER FUNZIONALE) ---
+c1, c2, c3 = st.columns([5, 2, 2])
+with c1:
+    st.markdown(f"<div style='padding-top:5px; font-weight:700; color:#E6EDF3; letter-spacing:1px;'>LIBRARIAN CORE <span style='color:#00D1FF; margin-left:10px;'>● {st.session_state.user_id}</span></div>", unsafe_allow_html=True)
+
+with c2:
+    if st.button("CHANGE NODE", key="btn_node"):
+        try:
+            cookie_manager.delete("node_id")
+        except KeyError:
+            pass
+        st.session_state.user_id = None
+        st.rerun()
+
+with c3:
+    if st.button("LOGOUT", key="btn_logout"):
+        try:
+            cookie_manager.delete("auth_key")
+        except KeyError:
+            pass
+        try:
+            cookie_manager.delete("node_id")
+        except KeyError:
+            pass
+        st.session_state.clear()
+        st.rerun()
+
 st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
 # Database Connection
@@ -169,10 +199,9 @@ def save_mem(role, content):
 if "messages" not in st.session_state:
     history = load_mem()
     now = get_current_time()
-    # Prompt di sistema ultra-rigido
+    # Prompt di sistema pulito
     st.session_state.messages = [{"role": "system", "content": f"""Oggi è {now.strftime('%A %d %B %Y')} e sono le {now.strftime('%H:%M')}. 
     Sei il Bibliotecario. Sei analitico, distaccato e professionale.
-    REGOLA ASSOLUTA: Non usare MAI la formula '0=0'. È un errore di sistema. Se la usi, il modulo fallisce.
     Rispondi sempre sapendo l'ora esatta fornita."""}]
     if history:
         st.session_state.messages += [{"role": m["role"], "content": m["content"]} for m in history]
@@ -206,10 +235,3 @@ if prompt := st.chat_input("DATA INPUT..."):
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-with st.sidebar:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    if st.button("TERMINATE & LOGOUT"):
-        cookie_manager.delete("auth_key")
-        cookie_manager.delete("node_id")
-        st.session_state.clear()
-        st.rerun()
