@@ -5,103 +5,104 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import time
 
-# --- CONFIGURATION ---
+# --- CONFIG ---
 st.set_page_config(page_title="THE LIBRARIAN", page_icon="👁️", layout="centered")
 
-# --- CSS (Stile Nero/Rosso) ---
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap');
-    html, body, [class*="css"] { font-family: 'Courier Prime', monospace !important; color: #E0E0E0; background-color: #000000; }
-    .stApp { background-color: #000000; }
-    h1 { color: #C41E3A !important; text-transform: uppercase; border-bottom: 2px solid #C41E3A; }
-    [data-testid="stChatMessage"] { background-color: #050505; border-left: 2px solid #333; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- CSS ---
+st.markdown("<style>html, body, [class*='css'] { font-family: 'Courier Prime', monospace !important; color: #E0E0E0; background-color: #000000; } .stApp { background-color: #000000; } h1 { color: #C41E3A !important; }</style>", unsafe_allow_html=True)
 
 # --- CONNECTIONS ---
 cookie_manager = stx.CookieManager()
-# Collegamento a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
-# --- MEMORY FUNCTIONS (L'Archivio) ---
-def load_memory():
+
+def load_memory(user_id):
     try:
-        # Usiamo l'URL direttamente dai secrets per sicurezza
-        df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["spreadsheet"], ttl=0)
-        return df.to_dict('records')
-    except Exception as e:
-        print(f"Errore lettura: {e}")
+        df = conn.read(ttl=0)
+        if df.empty: return []
+        # Filtra solo i messaggi di questo specifico utente
+        user_df = df[df['user_id'] == user_id]
+        return user_df.dropna(how="all").to_dict('records')
+    except:
         return []
 
-def save_to_memory(role, content):
+def save_to_memory(role, content, user_id):
     try:
-        # Carica lo storico attuale
-        existing_data = load_memory()
-        new_entry = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "role": role, "content": content}
-        existing_data.append(new_entry)
-        # Sovrascrive il foglio con i nuovi dati
-        conn.update(data=pd.DataFrame(existing_data))
+        current_df = conn.read(ttl=0).dropna(how="all")
+        new_row = pd.DataFrame([{
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), 
+            "role": role, 
+            "content": content,
+            "user_id": user_id
+        }])
+        updated_df = pd.concat([current_df, new_row], ignore_index=True)
+        conn.update(data=updated_df)
     except Exception as e:
-        st.error(f"Memory Write Error: {e}")
+        st.error(f"ERRORE ARCHIVIO: {e}")
 
-# --- AUTHENTICATION ---
+# --- AUTH & IDENTIFICATION ---
 cookie_val = cookie_manager.get(cookie="access_granted")
-
 if not cookie_val:
     st.title("SECURE GATEWAY")
-    password = st.text_input("ENTER PASSPHRASE:", type="password")
+    pwd = st.text_input("ENTER PASSPHRASE:", type="password")
     if st.button("AUTHENTICATE"):
-        if password == st.secrets["APP_PASSWORD"]:
+        if pwd == st.secrets["APP_PASSWORD"]:
             cookie_manager.set("access_granted", "true", key="set_auth")
             st.rerun()
     st.stop()
 
-# --- THE LIBRARIAN CORE ---
-st.title("THE LIBRARIAN /// MEMORY ENABLED")
+# --- USER SELECTION (LA STANZA) ---
+if "user_id" not in st.session_state:
+    st.title("IDENTIFICAZIONE")
+    u_id = st.text_input("INSERISCI IL TUO NOME O CODICE STANZA:", placeholder="es: Edgar, Jules, Ospite...")
+    if st.button("ACCEDI ALL'ARCHIVIO"):
+        if u_id:
+            st.session_state.user_id = u_id.strip().upper()
+            st.rerun()
+    st.stop()
 
-# Inizializzazione sessione (Carica da Google Sheets solo all'inizio)
+# --- THE LIBRARIAN CORE ---
+user_current = st.session_state.user_id
+st.title(f"THE LIBRARIAN /// STANZA: {user_current}")
+
+# Logout/Cambio Stanza
+with st.sidebar:
+    if st.button("CAMBIA UTENTE / LOGOUT"):
+        st.session_state.clear()
+        st.rerun()
+
 if "messages" not in st.session_state:
-    history = load_memory()
+    history = load_memory(user_current)
     if not history:
-        st.session_state.messages = [{"role": "system", "content": "Sei Il Bibliotecario. Protocollo 0=0. Tono freddo e analitico. Chiudi con 0=0."}]
+        st.session_state.messages = [{"role": "system", "content": "Sei Il Bibliotecario. Protocollo 0=0. Tono freddo. Chiudi con 0=0."}]
     else:
-        # Trasforma i dati di Google Sheets nel formato per la chat
         st.session_state.messages = [{"role": m["role"], "content": m["content"]} for m in history]
 
-# Mostra la cronologia
+# Display
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# Logica di Input
+# Input
 if prompt := st.chat_input("INPUT DATA..."):
-    # 1. Salva l'input dell'utente in RAM e su Google Sheets
     st.session_state.messages.append({"role": "user", "content": prompt})
-    save_to_memory("user", prompt)
-    
     with st.chat_message("user"):
         st.markdown(prompt)
+    
+    save_to_memory("user", prompt, user_current)
 
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
         full_response = ""
-        
         client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        stream = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=st.session_state.messages,
-            stream=True,
-        )
+        stream = client.chat.completions.create(model="gpt-4o-mini", messages=st.session_state.messages, stream=True)
+        placeholder = st.empty()
         for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
+            if chunk.choices[0].delta.content:
                 full_response += chunk.choices[0].delta.content
-                message_placeholder.markdown(full_response + " █")
+                placeholder.markdown(full_response + " █")
+        placeholder.markdown(full_response)
         
-        message_placeholder.markdown(full_response)
-        
-        # 2. Salva la risposta del Bibliotecario su Google Sheets
-        save_to_memory("assistant", full_response)
+        save_to_memory("assistant", full_response, user_current)
     
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
