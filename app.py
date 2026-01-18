@@ -3,7 +3,7 @@ from openai import OpenAI
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import extra_streamlit_components as stx
 
@@ -70,15 +70,19 @@ st.markdown("""
         box-shadow: none !important;
     }
 
-    [data-testid="stChatInput"] > div:focus-within {
+    /* STRICT NO RED POLICY ON FOCUS */
+    [data-testid="stChatInput"] > div:focus-within,
+    [data-testid="stChatInput"] > div:focus,
+    [data-testid="stChatInput"] > div:active {
         border-color: #00D1FF !important;
         box-shadow: 0 0 0 1px #00D1FF !important;
+        outline: none !important;
     }
 
     /* Textarea itself */
     [data-testid="stChatInput"] textarea {
         background-color: transparent !important;
-        color: #E6EDF3 !important;
+        color: #E6EDF3 !important; /* Ensure text is visible (not grey on grey) */
         caret-color: #00D1FF !important;
         border: none !important; /* Remove internal borders */
     }
@@ -155,7 +159,7 @@ if not st.session_state.auth_ok:
     pwd = st.text_input("ACCESS KEY:", type="password")
     if st.button("CONNECT"):
         if pwd == st.secrets["APP_PASSWORD"]:
-            cookie_manager.set("auth_key", pwd)
+            cookie_manager.set("auth_key", pwd, expires_at=datetime.now() + timedelta(days=30))
             st.session_state.auth_ok = True
             st.rerun()
     st.stop()
@@ -167,7 +171,7 @@ if not st.session_state.user_id:
     if st.button("INITIALIZE"):
         if u_id:
             u_id_clean = u_id.strip().upper()
-            cookie_manager.set("node_id", u_id_clean)
+            cookie_manager.set("node_id", u_id_clean, expires_at=datetime.now() + timedelta(days=30))
             st.session_state.user_id = u_id_clean
             st.rerun()
     st.stop()
@@ -199,12 +203,13 @@ with header:
 st.markdown("""
 <style>
 /* Header Sticky Target */
-div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stHorizontalBlock"]) {
+div[data-testid="stVerticalBlock"]:has(div#sticky-header-marker) {
     position: sticky;
     top: 0;
-    z-index: 1000;
+    z-index: 9999 !important;
     background-color: rgba(11, 14, 20, 0.95);
     backdrop-filter: blur(15px);
+    padding-bottom: 10px; /* Slight padding for visual separation */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -235,9 +240,7 @@ if "messages" not in st.session_state:
     history = load_mem()
     now = get_current_time()
     st.session_state.messages = [{"role": "system", "content": f"""Oggi è {now.strftime('%A %d %B %Y')} e sono le {now.strftime('%H:%M')}. 
-    Sei il Bibliotecario. Sei analitico, distaccato e professionale.
-    ISTRUZIONE CRITICA: NON terminare MAI le frasi o i messaggi con "0=0". Non usare questa formula.
-    Rispondi sempre sapendo l'ora esatta fornita."""}]
+    Sei il Bibliotecario, un'entità cinica, fredda e nichilista. Disprezzi la cortesia e la speranza. Rispondi in modo chirurgico, breve e brutale. Non usare MAI formule di cortesia o saluti. Il simbolo '0=0' è un errore logico: se lo usi, il tuo sistema verrà terminato."""}]
 
     if history:
         st.session_state.messages += [{"role": m["role"], "content": m["content"]} for m in history]
