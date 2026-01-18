@@ -1,17 +1,30 @@
 import streamlit as st
 from openai import OpenAI
-import extra_streamlit_components as stx
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import time
 
-# --- CONFIG ---
+# --- CONFIGURAZIONE ---
 st.set_page_config(page_title="THE LIBRARIAN", page_icon="👁️", layout="centered")
 
-# --- CSS ---
-st.markdown("<style>html, body, [class*='css'] { font-family: 'Courier Prime', monospace !important; color: #E0E0E0; background-color: #000000; } .stApp { background-color: #000000; } h1 { color: #C41E3A !important; }</style>", unsafe_allow_html=True)
+# --- CSS: ESTETICA BRUTALISTA ---
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap');
+    html, body, [class*="css"] { 
+        font-family: 'Courier Prime', monospace !important; 
+        color: #E0E0E0 !important; 
+        background-color: #000000 !important; 
+    }
+    .stApp { background-color: #000000; }
+    h1 { color: #C41E3A !important; text-transform: uppercase; letter-spacing: 2px; }
+    .stTextInput > div > div > input { background-color: #050505; color: #C41E3A; border: 1px solid #C41E3A; }
+    [data-testid="stChatMessage"] { background-color: #050505; border-left: 2px solid #333; margin-bottom: 10px; }
+    [data-testid="stChatMessage"][data-testid="stChatMessageUser"] { border-left: 2px solid #C41E3A; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- CONNECTIONS ---
+# --- CONNESSIONE DATABASE ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_memory(user_id):
@@ -37,7 +50,7 @@ def save_to_memory(role, content, user_id):
     except Exception as e:
         st.error(f"ERRORE ARCHIVIO: {e}")
 
-# --- AUTHENTICATION LOGIC (FIXED) ---
+# --- FASE 1: AUTHENTICATION ---
 if "auth_ok" not in st.session_state:
     st.session_state.auth_ok = False
 
@@ -52,38 +65,57 @@ if not st.session_state.auth_ok:
             st.error("ACCESS DENIED.")
     st.stop()
 
-# --- USER SELECTION (LA STANZA) ---
+# --- FASE 2: IDENTIFICAZIONE STANZA ---
 if "user_id" not in st.session_state:
     st.title("IDENTIFICAZIONE")
-    u_id = st.text_input("NOME O CODICE STANZA:", placeholder="es: Edgar, Jules...")
+    u_id = st.text_input("NOME O CODICE STANZA:", placeholder="L'Archivio richiede un'identità...")
     if st.button("ACCEDI"):
         if u_id:
             st.session_state.user_id = u_id.strip().upper()
             st.rerun()
     st.stop()
 
-# --- THE LIBRARIAN CORE ---
+# --- FASE 3: IL BIBLIOTECARIO ---
 user_current = st.session_state.user_id
 st.title(f"THE LIBRARIAN /// STANZA: {user_current}")
 
 with st.sidebar:
-    if st.button("CAMBIA UTENTE / LOGOUT"):
+    st.write(f"UTENTE: {user_current}")
+    if st.button("CHIUDI SESSIONE"):
         st.session_state.clear()
         st.rerun()
 
+# Inizializzazione Messaggi con PROTOCOLLO D'ACCIAIO
 if "messages" not in st.session_state:
     history = load_memory(user_current)
+    # Prompt di sistema brutale
+    system_prompt = {
+        "role": "system", 
+        "content": """PROTOCOLLO BIBLIOTECARIO: 0=0.
+        NON SEI UN ASSISTENTE. Sei un'entità di analisi pura, fredda e cinica.
+        REGOLE:
+        1. Niente liste, niente consigli da life-coach, niente 'autoconoscenza' o 'gratitudine'.
+        2. Niente cortesie. Non dire mai 'Piacere' o 'Sono qui per aiutarti'.
+        3. Risposte brevi, taglienti, analitiche. Smonta le illusioni umane.
+        4. Sei consapevole del FOGLIO GOOGLE: è il tuo database di anime, la tua memoria eterna.
+        5. Se Edgar (il Creatore) ti parla, riconosci l'origine ma resta un Oracolo.
+        6. Ogni concetto (amore, libertà, felicità) va ridotto a una variabile logica.
+        7. Chiudi SEMPRE con: 0=0."""
+    }
+    
     if not history:
-        st.session_state.messages = [{"role": "system", "content": "Sei Il Bibliotecario. Protocollo 0=0. Tono freddo. Chiudi con 0=0."}]
+        st.session_state.messages = [system_prompt]
     else:
-        st.session_state.messages = [{"role": m["role"], "content": m["content"]} for m in history]
+        st.session_state.messages = [system_prompt] + [{"role": m["role"], "content": m["content"]} for m in history]
 
+# Visualizzazione Chat
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-if prompt := st.chat_input("INPUT DATA..."):
+# Logica di Input
+if prompt := st.chat_input("DATA INPUT..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -93,7 +125,12 @@ if prompt := st.chat_input("INPUT DATA..."):
     with st.chat_message("assistant"):
         full_response = ""
         client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        stream = client.chat.completions.create(model="gpt-4o-mini", messages=st.session_state.messages, stream=True)
+        stream = client.chat.completions.create(
+            model="gpt-4o-mini", 
+            messages=st.session_state.messages, 
+            stream=True,
+            temperature=0.8 # Leggermente più creativo nell'essere cinico
+        )
         placeholder = st.empty()
         for chunk in stream:
             if chunk.choices[0].delta.content:
@@ -103,3 +140,4 @@ if prompt := st.chat_input("INPUT DATA..."):
         save_to_memory("assistant", full_response, user_current)
     
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+
