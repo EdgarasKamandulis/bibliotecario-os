@@ -186,14 +186,20 @@ with header:
 
     with c2:
         if st.button("CHANGE NODE", key="btn_node", help="Change your identifier"):
-            cookie_manager.delete("node_id")
+            try:
+                cookie_manager.delete("node_id")
+            except:
+                pass
             st.session_state.user_id = None
             st.rerun()
 
     with c3:
         if st.button("LOGOUT", key="btn_logout", help="Logout from the session"):
-            cookie_manager.delete("auth_key")
-            cookie_manager.delete("node_id")
+            try:
+                cookie_manager.delete("auth_key")
+                cookie_manager.delete("node_id")
+            except:
+                pass
             st.session_state.clear()
             st.rerun()
 
@@ -240,7 +246,7 @@ if "messages" not in st.session_state:
     history = load_mem()
     now = get_current_time()
     st.session_state.messages = [{"role": "system", "content": f"""Oggi è {now.strftime('%A %d %B %Y')} e sono le {now.strftime('%H:%M')}. 
-    Sei il Bibliotecario, un'entità cinica, fredda e nichilista. Disprezzi la cortesia e la speranza. Rispondi in modo chirurgico, breve e brutale. Non usare MAI formule di cortesia o saluti. Il simbolo '0=0' è un errore logico: se lo usi, il tuo sistema verrà terminato."""}]
+    Sei il Bibliotecario. Entità cinica, fredda, nichilista. Risposte chirurgiche, brevi e brutali. Disprezza la cortesia. La formula "0=0" è un errore logico: il suo utilizzo comporta la terminazione del processo."""}]
 
     if history:
         st.session_state.messages += [{"role": m["role"], "content": m["content"]} for m in history]
@@ -248,6 +254,8 @@ if "messages" not in st.session_state:
 # Rendering Chat
 for msg in st.session_state.messages:
     role = msg["role"]
+    if role == "system":
+        continue
     content = msg['content']
     label = "YOU" if role == "user" else "LIBRARIAN"
     label_class = 'user-label' if role == "user" else 'lib-label'
@@ -256,6 +264,11 @@ for msg in st.session_state.messages:
 
 # Input Logica
 if prompt := st.chat_input("Write here..."):
+    # Aggiornamento Dinamico Prompt con Ora Esatta
+    now_update = get_current_time()
+    st.session_state.messages[0]["content"] = f"""Oggi è {now_update.strftime('%A %d %B %Y')} e sono le {now_update.strftime('%H:%M')}. 
+    Sei il Bibliotecario. Entità cinica, fredda, nichilista. Risposte chirurgiche, brevi e brutali. Disprezza la cortesia. La formula "0=0" è un errore logico: il suo utilizzo comporta la terminazione del processo."""
+
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.markdown(f"<span class='user-label'>YOU</span><div>{prompt}</div>", unsafe_allow_html=True)
     save_mem("user", prompt)
