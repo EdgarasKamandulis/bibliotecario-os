@@ -53,15 +53,15 @@ st.markdown("""
     [data-testid="stChatMessage"][data-testid="stChatMessageUser"] {
         border-left: 2px solid #C41E3A;
     }
+    /* Hide Streamlit Elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- COOKIE MANAGER (MEMORY SYSTEM) ---
-@st.cache_resource
-def get_manager():
-    return stx.CookieManager()
-
-cookie_manager = get_manager()
+# --- COOKIE MANAGER (NO CACHE) ---
+# Rimossa la cache che causava l'errore
+cookie_manager = stx.CookieManager()
 
 # --- SESSION & SYSTEM PROMPT ---
 if "messages" not in st.session_state:
@@ -77,9 +77,11 @@ Chiudi i concetti chiave con: "0=0".
     ]
 
 # --- AUTHENTICATION LOGIC ---
-# Recupera il cookie "access_granted"
+# 1. Tenta di leggere il cookie
+time.sleep(0.1) # Piccola pausa per stabilità lettura cookie
 cookie_val = cookie_manager.get(cookie="access_granted")
 
+# 2. Se il cookie non c'è, mostra login
 if not cookie_val:
     st.title("SECURE GATEWAY")
     st.write("IDENTITY VERIFICATION REQUIRED.")
@@ -88,9 +90,9 @@ if not cookie_val:
     
     if st.button("AUTHENTICATE"):
         if password == st.secrets["APP_PASSWORD"]:
-            # Salva il cookie per 30 giorni
+            # Salva il cookie (durata 30 giorni)
             cookie_manager.set("access_granted", "true", key="set_auth")
-            st.success("ACCESS GRANTED. RELOADING...")
+            st.success("ACCESS GRANTED.")
             time.sleep(1)
             st.rerun()
         else:
@@ -102,19 +104,20 @@ if not cookie_val:
 # --- MAIN INTERFACE ---
 st.title("THE LIBRARIAN /// PROTOCOL 0=0")
 
-# Logout (nascosto in sidebar)
+# Logout nascosto
 with st.sidebar:
+    st.write("SYSTEM CONTROLS")
     if st.button("LOGOUT"):
         cookie_manager.delete("access_granted")
         st.rerun()
 
-# Chat History
+# Chat History Display
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# Chat Input & Logic
+# Input & Logic
 if prompt := st.chat_input("INPUT DATA..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
