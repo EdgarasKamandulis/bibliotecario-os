@@ -12,18 +12,15 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
     
-    /* Fondo Nero e Testo Courier */
     html, body, [class*="css"], .stApp {
         background-color: #000000 !important;
         font-family: 'Courier Prime', monospace !important;
         color: #888888 !important;
     }
 
-    /* Nascondi Elementi Streamlit */
     header, footer, #MainMenu {visibility: hidden;}
     [data-testid="stChatMessageAvatarUser"], [data-testid="stChatMessageAvatarAssistant"] {display: none !important;}
 
-    /* Status Bar */
     .status-bar {
         font-size: 0.75rem;
         color: #C41E3A;
@@ -34,7 +31,6 @@ st.markdown("""
         letter-spacing: 2px;
     }
 
-    /* Chat Messages - Nudi e Crudi */
     [data-testid="stChatMessage"] {
         background-color: transparent !important;
         border: none !important;
@@ -42,7 +38,6 @@ st.markdown("""
         margin-bottom: 1.2rem !important;
     }
 
-    /* Etichette Messaggi */
     .msg-label {
         font-weight: bold;
         font-size: 0.8rem;
@@ -50,13 +45,9 @@ st.markdown("""
         display: block;
     }
     
-    /* Colore User (Rosso) */
     .user-text { color: #C41E3A !important; }
-    
-    /* Colore Librarian (Bianco Ghiaccio) */
     .lib-text { color: #E0E0E0 !important; }
 
-    /* Input Field */
     .stChatInputContainer {
         background-color: #000000 !important;
         border-top: 1px solid #1A1A1A !important;
@@ -69,7 +60,6 @@ st.markdown("""
         font-family: 'Courier Prime', monospace !important;
     }
 
-    /* Bottoni e Sidebar */
     .stButton>button {
         background-color: transparent !important;
         color: #444 !important;
@@ -149,21 +139,20 @@ if prompt := st.chat_input("DATA INPUT..."):
     
     save_to_memory("user", prompt, user_current)
 
-    with st.empty():
-        full_response = ""
-        st.markdown(f"<span class='msg-label lib-text'>> LIBRARIAN:</span>", unsafe_allow_html=True)
-        placeholder = st.empty()
-        
-        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        stream = client.chat.completions.create(model="gpt-4o-mini", messages=st.session_state.messages, stream=True)
-        
-        for chunk in stream:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-                placeholder.markdown(f"<div class='lib-text'>{full_response} █</div>", unsafe_allow_html=True)
-        
-        placeholder.markdown(f<div class='lib-text'>{full_response}</div>", unsafe_allow_html=True)
-        save_to_memory("assistant", full_response, user_current)
+    full_response = ""
+    st.markdown(f"<span class='msg-label lib-text'>> LIBRARIAN:</span>", unsafe_allow_html=True)
+    placeholder = st.empty()
+    
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    stream = client.chat.completions.create(model="gpt-4o-mini", messages=st.session_state.messages, stream=True)
+    
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            full_response += chunk.choices[0].delta.content
+            placeholder.markdown(f"<div class='lib-text'>{full_response} █</div>", unsafe_allow_html=True)
+    
+    placeholder.markdown(f"<div class='lib-text'>{full_response}</div>", unsafe_allow_html=True)
+    save_to_memory("assistant", full_response, user_current)
     
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
