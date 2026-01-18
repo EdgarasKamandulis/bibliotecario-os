@@ -17,7 +17,7 @@ cookie_manager = stx.CookieManager()
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Fira+Code:wght@300;400&display=swap');
-    
+
     html, body, [class*="css"], .stApp {
         background-color: #0B0E14 !important;
         font-family: 'Inter', sans-serif !important;
@@ -33,8 +33,6 @@ st.markdown("""
         z-index: 1000;
         background-color: rgba(11, 14, 20, 0.95);
         backdrop-filter: blur(15px);
-        margin-top: -6rem; /* Pull up to cover default padding if needed, or adjust */
-        padding-top: 1rem;
     }
 
     .node-status {
@@ -45,7 +43,7 @@ st.markdown("""
     }
 
     /* Layout Content */
-    .main-content { padding-top: 20px; padding-bottom: 120px; }
+    .main-content { padding: 20px; padding-bottom: 120px; }
 
     /* Chat Messages - BLUE THEME */
     [data-testid="stChatMessage"] {
@@ -56,17 +54,14 @@ st.markdown("""
     }
     [data-testid="stChatMessage"]:focus { border: 1px solid #00D1FF !important; }
 
-    .user-label { color: #00D1FF; font-weight: 600; font-size: 0.7rem; margin-bottom: 5px; display: block; text-transform: uppercase;}
-    .lib-label { color: #708090; font-weight: 600; font-size: 0.7rem; margin-bottom: 5px; display: block; text-transform: uppercase;}
+    .user-label { color: #00D1FF; font-weight: 600; font-size: 0.7rem; margin-bottom: 5px; display: block; text-transform: uppercase; }
+    .lib-label { color: #708090; font-weight: 600; font-size: 0.7rem; margin-bottom: 5px; display: block; text-transform: uppercase; }
 
-    /* --- CHAT INPUT FIXES (NO RED) --- */
-    /* Wrapper Container */
+    /* Chat Input - CHANGE RED TO CYAN */
     [data-testid="stChatInput"] {
         background-color: transparent !important;
         border-color: transparent !important;
     }
-    
-    /* The internal container that usually gets the red border */
     [data-testid="stChatInput"] > div {
         background-color: #161B22 !important;
         border: 1px solid #1E2530 !important;
@@ -74,8 +69,7 @@ st.markdown("""
         color: #E6EDF3 !important;
         box-shadow: none !important;
     }
-    
-    /* Focus State for the wrapper */
+
     [data-testid="stChatInput"] > div:focus-within {
         border-color: #00D1FF !important;
         box-shadow: 0 0 0 1px #00D1FF !important;
@@ -88,7 +82,7 @@ st.markdown("""
         caret-color: #00D1FF !important;
         border: none !important; /* Remove internal borders */
     }
-    
+
     [data-testid="stChatInput"] textarea::placeholder {
         font-size: 0.8rem !important;
         color: #586069 !important;
@@ -112,35 +106,21 @@ st.markdown("""
         color: #00D1FF !important;
     }
 
-    /* TARGETING TEXT INPUTS (Login / Node) to remove Red */
-    div[data-baseweb="input"] {
-        background-color: #161B22 !important;
-        border: 1px solid #1E2530 !important;
-        border-radius: 8px !important; 
-    }
-    div[data-baseweb="input"]:focus-within {
-        border-color: #00D1FF !important;
-        box-shadow: 0 0 0 1px #00D1FF !important;
-    }
-    div[data-testid="stTextInput"] label {
-        color: #B0BCCB !important;
-    }
-    
     /* Sidebar & Buttons - PURGE RED */
     [data-testid="stSidebar"] { background-color: #0B0E14 !important; border-right: 1px solid #1E2530 !important; }
-    .stButton>button {
+    .stButton > button {
         background-color: transparent !important;
         color: #00D1FF !important;
         border: 1px solid #1E2530 !important;
         border-radius: 8px !important;
     }
-    .stButton>button:hover {
+    .stButton > button:hover {
         border-color: #00D1FF !important;
         color: #00D1FF !important;
         background-color: rgba(0, 209, 255, 0.05) !important;
     }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # --- LOGICA TEMPORALE ---
 def get_current_time():
@@ -208,7 +188,7 @@ with header:
             st.rerun()
     st.markdown("<div style='height: 1px; background-color: #1E2530; margin-top: 10px;'></div>", unsafe_allow_html=True)
 
-# CSS Injection
+# CSS Injection for Header styling
 st.markdown("""
 <style>
 /* Header Sticky Target */
@@ -257,7 +237,7 @@ for msg in st.session_state.messages:
     if msg["role"] == "user":
         st.markdown(f"<span class='user-label'>YOU</span><div>{msg['content']}</div>", unsafe_allow_html=True)
     elif msg["role"] == "assistant":
-        clean_content = msg['content'].replace("0=0", "")
+        clean_content = msg['content']
         st.markdown(f"<span class='lib-label'>LIBRARIAN</span><div>{clean_content}</div>", unsafe_allow_html=True)
 
 # Input Logica
@@ -275,12 +255,10 @@ if prompt := st.chat_input("Write here..."):
         for chunk in stream:
             if chunk.choices[0].delta.content:
                 full_res += chunk.choices[0].delta.content
-                display_res = full_res.replace("0=0", "")
-                placeholder.markdown(f"<div>{display_res}</div>", unsafe_allow_html=True)
+                placeholder.markdown(f"<div>{full_res}</div>", unsafe_allow_html=True)
                 time.sleep(0.05)
-        
-        final_clean_res = full_res.replace("0=0", "")
-        save_mem("assistant", final_clean_res)
-    st.session_state.messages.append({"role": "assistant", "content": final_clean_res})
+
+        save_mem("assistant", full_res)
+    st.session_state.messages.append({"role": "assistant", "content": full_res})
 
 st.markdown('</div>', unsafe_allow_html=True)
