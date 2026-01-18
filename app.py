@@ -22,15 +22,15 @@ st.markdown("""
 # --- CONNECTIONS ---
 cookie_manager = stx.CookieManager()
 # Collegamento a Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection, connection_name="gcp_service_account")
-
+conn = st.connection("gsheets", type=GSheetsConnection)
 # --- MEMORY FUNCTIONS (L'Archivio) ---
 def load_memory():
     try:
-        # Legge i dati dal foglio
-        df = conn.read(ttl=0) # ttl=0 forza la lettura in tempo reale
+        # Usiamo l'URL direttamente dai secrets per sicurezza
+        df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["spreadsheet"], ttl=0)
         return df.to_dict('records')
-    except:
+    except Exception as e:
+        print(f"Errore lettura: {e}")
         return []
 
 def save_to_memory(role, content):
