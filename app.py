@@ -121,9 +121,12 @@ st.markdown("""
     }
 
     /* Font size adjustment for Logout and Change Node */
-    .small-button {
-        font-size: 0.8em;
-        margin-left: 10px;
+    div[data-testid="stVerticalBlock"]:has(div#sticky-header-marker) button {
+        font-size: 0.7em !important;
+        padding: 0.25em 0.5em !important;
+        min-height: 0px !important;
+        height: auto !important;
+        margin-top: 2px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -172,18 +175,19 @@ if not st.session_state.user_id:
 # --- UI PRINCIPALE (STICKY HEADER) ---
 header = st.container()
 with header:
-    c1, c2, c3 = st.columns([5, 1, 1])
+    st.markdown('<div id="sticky-header-marker"></div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([6, 2, 1])
     with c1:
         st.markdown(f"<div style='padding-top: 5px; font-weight: 700; color:#E6EDF3; letter-spacing: 1px;'>LIBRARIAN CORE <span style='color:#00D1FF; margin-left: 10px;'>● {st.session_state.user_id}</span></div>", unsafe_allow_html=True)
 
     with c2:
-        if st.button("CHANGE NODE", key="btn_node", help="Change your identifier", css_class='small-button'):
+        if st.button("CHANGE NODE", key="btn_node", help="Change your identifier"):
             cookie_manager.delete("node_id")
             st.session_state.user_id = None
             st.rerun()
 
     with c3:
-        if st.button("LOGOUT", key="btn_logout", help="Logout from the session", css_class='small-button'):
+        if st.button("LOGOUT", key="btn_logout", help="Logout from the session"):
             cookie_manager.delete("auth_key")
             cookie_manager.delete("node_id")
             st.session_state.clear()
