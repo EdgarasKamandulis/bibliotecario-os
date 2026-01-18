@@ -8,14 +8,10 @@ import extra_streamlit_components as stx
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="LEVIATHAN OS", page_icon="🐋", layout="centered")
 
-# --- COOKIE MANAGER PER MEMORIA ACCESSO ---
-@st.cache_resource
-def get_manager():
-    return stx.CookieManager()
+# --- COOKIE MANAGER (FIXED: NO CACHE) ---
+cookie_manager = stx.CookieManager()
 
-cookie_manager = get_manager()
-
-# --- CSS: DASHBOARD MODERNA & PULITA ---
+# --- CSS: LEVIATHAN DASHBOARD DESIGN ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Fira+Code:wght@300;400&display=swap');
@@ -48,7 +44,7 @@ st.markdown("""
         text-shadow: 0 0 10px rgba(0, 209, 255, 0.3);
     }
 
-    /* Messaggi Stile Chat Moderna */
+    /* Chat Messages Stile Dashboard */
     [data-testid="stChatMessage"] {
         background-color: #10141C !important;
         border-radius: 15px !important;
@@ -57,10 +53,10 @@ st.markdown("""
         margin-bottom: 15px !important;
     }
 
-    .user-label { color: #00D1FF; font-weight: 600; font-size: 0.75rem; margin-bottom: 5px; display: block;}
-    .lib-label { color: #708090; font-weight: 600; font-size: 0.75rem; margin-bottom: 5px; display: block;}
+    .user-label { color: #00D1FF; font-weight: 600; font-size: 0.75rem; margin-bottom: 5px; display: block; text-transform: uppercase;}
+    .lib-label { color: #708090; font-weight: 600; font-size: 0.75rem; margin-bottom: 5px; display: block; text-transform: uppercase;}
 
-    /* Input Moderno */
+    /* Input Moderna */
     .stChatInputContainer {
         background-color: transparent !important;
         border: none !important;
@@ -73,15 +69,21 @@ st.markdown("""
         color: #E6EDF3 !important;
     }
 
-    /* Sidebar a scomparsa */
-    [data-testid="stSidebar"] {
-        background-color: #0B0E14 !important;
-        border-right: 1px solid #1E2530 !important;
+    /* Bottoni Sidebar */
+    [data-testid="stSidebar"] { background-color: #0B0E14 !important; }
+    .stButton>button {
+        background-color: transparent !important;
+        color: #C41E3A !important;
+        border: 1px solid #C41E3A !important;
+        border-radius: 8px !important;
+        width: 100%;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOGICA COOKIE (RICORDA ACCESSO) ---
+# --- LOGICA PERSISTENZA ---
+# Aspettiamo un secondo che i cookie vengano caricati dal browser
+time.sleep(0.5)
 saved_pwd = cookie_manager.get("auth_key")
 saved_node = cookie_manager.get("node_id")
 
@@ -92,22 +94,22 @@ if "user_id" not in st.session_state:
 
 # --- AUTH & LOGIN ---
 if not st.session_state.auth_ok:
-    st.markdown("<h2 style='text-align:center; color:#E6EDF3;'>LEVIATHAN LOGIN</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center; color:#E6EDF3; font-weight:300;'>LEVIATHAN OS</h2>", unsafe_allow_html=True)
     pwd = st.text_input("ACCESS KEY:", type="password")
     if st.button("CONNECT"):
         if pwd == st.secrets["APP_PASSWORD"]:
-            cookie_manager.set("auth_key", pwd, expires_at=None)
+            cookie_manager.set("auth_key", pwd)
             st.session_state.auth_ok = True
             st.rerun()
     st.stop()
 
 if not st.session_state.user_id:
-    st.markdown("<h2 style='text-align:center; color:#E6EDF3;'>SELECT NODE</h2>", unsafe_allow_html=True)
-    u_id = st.text_input("NODE NAME:")
+    st.markdown("<h2 style='text-align:center; color:#E6EDF3; font-weight:300;'>SELECT NODE</h2>", unsafe_allow_html=True)
+    u_id = st.text_input("NODE NAME (es: GENESI):")
     if st.button("INITIALIZE"):
         if u_id:
             u_id_clean = u_id.strip().upper()
-            cookie_manager.set("node_id", u_id_clean, expires_at=None)
+            cookie_manager.set("node_id", u_id_clean)
             st.session_state.user_id = u_id_clean
             st.rerun()
     st.stop()
@@ -116,19 +118,18 @@ if not st.session_state.user_id:
 user_current = st.session_state.user_id
 st.markdown(f"""
     <div class="dash-header">
-        <span style="font-weight:700; color:#E6EDF3;">LEVIATHAN OS</span>
-        <span class="node-status">● {user_current} ACTIVE</span>
+        <span style="font-weight:700; color:#E6EDF3; letter-spacing:1px;">LEVIATHAN CORE</span>
+        <span class="node-status">● {user_current}</span>
     </div>
 """, unsafe_allow_html=True)
 
-# Database
+# Connection & Memory
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_mem():
     try:
         df = conn.read(ttl=0)
-        user_df = df[df['user_id'].astype(str) == str(user_current)]
-        return user_df.dropna(how="all").to_dict('records')
+        return df[df['user_id'].astype(str) == str(user_current)].dropna(how="all").to_dict('records')
     except: return []
 
 def save_mem(role, content):
@@ -140,18 +141,19 @@ def save_mem(role, content):
 
 if "messages" not in st.session_state:
     history = load_mem()
-    st.session_state.messages = [{"role": "system", "content": "Sei il Bibliotecario del sistema Leviathan. Analitico, moderno, accogliente ma risoluto. Usa un linguaggio pulito."}]
+    st.session_state.messages = [{"role": "system", "content": "Sei il Bibliotecario del sistema Leviathan. Analitico, moderno, risoluto. Usa un tono pulito e professionale."}]
     if history:
         st.session_state.messages += [{"role": m["role"], "content": m["content"]} for m in history]
 
-# Chat
+# Chat Rendering
 for msg in st.session_state.messages:
     if msg["role"] == "user":
         st.markdown(f"<span class='user-label'>YOU</span><div>{msg['content']}</div>", unsafe_allow_html=True)
     elif msg["role"] == "assistant":
         st.markdown(f"<span class='lib-label'>LEVIATHAN</span><div>{msg['content']}</div>", unsafe_allow_html=True)
 
-if prompt := st.chat_input("Invia messaggio..."):
+# Input
+if prompt := st.chat_input("Invia segnale..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.markdown(f"<span class='user-label'>YOU</span><div>{prompt}</div>", unsafe_allow_html=True)
     save_mem("user", prompt)
@@ -170,7 +172,8 @@ if prompt := st.chat_input("Invia messaggio..."):
     st.session_state.messages.append({"role": "assistant", "content": full_res})
 
 with st.sidebar:
-    if st.button("LOGOUT / CLEAR COOKIES"):
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    if st.button("TERMINATE & LOGOUT"):
         cookie_manager.delete("auth_key")
         cookie_manager.delete("node_id")
         st.session_state.clear()
