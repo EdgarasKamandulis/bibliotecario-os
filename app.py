@@ -22,7 +22,7 @@ st.markdown("""
 # --- CONNECTIONS ---
 cookie_manager = stx.CookieManager()
 # Collegamento a Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
+conn = st.connection("gsheets", type=GSheetsConnection, connection_name="gcp_service_account")
 
 # --- MEMORY FUNCTIONS (L'Archivio) ---
 def load_memory():
